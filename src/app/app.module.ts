@@ -4,6 +4,7 @@ import { NgModule } from '@angular/core';
 import { AppComponent } from './app.component';
 import { NomadModule } from './nomad-job/nomad.module';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { AppMaterialModule } from './app-material.module';
 
 @NgModule({
   declarations: [
@@ -11,8 +12,10 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
   ],
   imports: [
     BrowserModule,
-    NomadModule,
-    BrowserAnimationsModule
+    BrowserAnimationsModule,
+
+    AppMaterialModule,
+    NomadModule
   ],
   providers: [],
   bootstrap: [AppComponent]
