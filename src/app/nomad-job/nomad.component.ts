@@ -1,8 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { NomadService } from './nomad.service';
-import { NomadRegion } from './nomad.model';
-import { FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
+import { NomadRegion, NomadJob, MetadataField, NomadFormData } from './nomad.model';
+import { FormBuilder, FormGroup, Validators, FormControl, FormArray } from '@angular/forms';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
 
+// @todo add documentation
 @Component({
   selector: 'app-nomad',
   templateUrl: './nomad.component.html'
@@ -11,94 +14,59 @@ import { FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms'
 export class NomadComponent implements OnInit {
 
   public regions: NomadRegion[];
-  public nomadForm: FormGroup;
-  public nomadJobs: any;
-  public metadataFields: any[];
+  public nomadForm: FormGroup = this.formBuilder.group({
+    regionSelect: ['', Validators.required],
+    jobSelect: ['', Validators.required]
+  });
 
-  private selectedRegion: NomadRegion;
-  private selectedJob: any;
+  public nomadJobs$: Observable<NomadJob[]>;
+  public nomadMetadata$: Observable<MetadataField[]>;
+
+  private metadataFields: MetadataField[] = [];
 
   public constructor(
     private formBuilder: FormBuilder,
     private nomadService: NomadService
   ) {}
 
-  /**
-   * @todo convert this to better use of obersvables and reactive forms.
-   * just wanted to get it in a working state
-   */
   public ngOnInit(): void {
     this.regions = this.nomadService.regions;
 
-    this.nomadForm = this.formBuilder.group({
-      regionSelect: ['', Validators.required],
-      jobSelect: ['', Validators.required]
-    });
+    const region$: Observable<NomadRegion> = this.nomadForm.get('regionSelect').valueChanges;
+    const job$: Observable<NomadJob> = this.nomadForm.get('jobSelect').valueChanges;
 
-    this.nomadForm.get('regionSelect').valueChanges.subscribe((region) => {
-      this.selectedRegion = region;
-      this.nomadService.loadNomadJobs(this.selectedRegion.url).subscribe((response) => {
-        this.nomadJobs = response;
-        if (response.length > 0) {
-          this.nomadForm.get('jobSelect').patchValue(response[0]);
-        }
-      },
-        () => this.nomadJobs = null // @todo handle errors
-      );
-    });
-
-    this.nomadForm.get('jobSelect').valueChanges.subscribe((job) => {
-      this.selectedJob = job;
-      this.nomadService.loadNomadJob(this.selectedRegion.url, this.selectedJob.ID)
-        .subscribe((jobDetail: any) => {
-          this.metadataFields = [];
-          const isCron: boolean = !!jobDetail.Periodic;
-
-          if (!isCron && jobDetail.ParameterizedJob) {
-            if (jobDetail.ParameterizedJob.MetaRequired) {
-              jobDetail.ParameterizedJob.MetaRequired.map((metaKey) => {
-                const defaultValue = jobDetail.Meta ? jobDetail.Meta[metaKey] : null;
-                this.metadataFields.push({ key: metaKey, value: defaultValue || '', required: true });
-              });
-            }
-            if (jobDetail.ParameterizedJob.MetaOptional) {
-              jobDetail.ParameterizedJob.MetaOptional.map((metaKey) => {
-                const defaultValue = jobDetail.Meta ? jobDetail.Meta[metaKey] : null;
-                this.metadataFields.push({ key: metaKey, value: defaultValue || '', required: false });
-              });
-            }
-
-            this.metadataFields.forEach((metadata) => {
-              let newControl: FormControl;
-              if (metadata.required) {
-                newControl = this.formBuilder.control(metadata.value, Validators.required);
-              } else {
-                newControl = this.formBuilder.control(metadata.value);
-              }
-              this.nomadForm.addControl(metadata.key, newControl);
-            });
+    this.nomadJobs$ = this.nomadService.loadNomadJobs(region$);
+    this.nomadMetadata$ = this.nomadService.loadMetadata(region$, job$)
+      .pipe(
+        tap(() => this.clearMetadataFormControls()),
+        tap((metadataFields: MetadataField[]) => {
+          if (metadataFields.length > 0) {
+            this.buildMetadataFormControls(metadataFields);
           }
-        });
-    });
-
-    this.nomadForm.get('regionSelect').patchValue(this.regions[0]);
+        })
+      );
   }
 
   public onSubmit(): any {
-    const formValue = this.nomadForm.getRawValue();
-    if (!!this.selectedJob.Periodic) {
-      return this.nomadService.runCronJob(this.selectedRegion.url, this.selectedJob.ID).subscribe();
-    }
-    if (this.metadataFields.length > 0) {
-      const apiMetaField: any[] = [];
-      this.metadataFields.forEach((meta, index) => {
-        apiMetaField.push({
-          index,
-          id: meta.key,
-          value: formValue[meta.key]
-        });
-      });
-      return this.nomadService.runParamJob(this.selectedRegion.url, this.selectedJob.ID, apiMetaField).subscribe();
-    }
+    const formValue: NomadFormData = this.nomadForm.getRawValue();
+    this.nomadService.runJob(formValue, this.metadataFields);
+  }
+
+  private buildMetadataFormControls(metadataFields: MetadataField[]) {
+    metadataFields.forEach((metadata) => {
+      let newControl: FormControl;
+      if (metadata.required) {
+        newControl = this.formBuilder.control(metadata.value, Validators.required);
+      } else {
+        newControl = this.formBuilder.control(metadata.value);
+      }
+      this.nomadForm.addControl(metadata.key, newControl);
+    });
+    this.metadataFields = metadataFields;
+  }
+
+  private clearMetadataFormControls() {
+    this.metadataFields.forEach((metadata: MetadataField) => this.nomadForm.removeControl(metadata.key));
+    this.metadataFields = [];
   }
 }

@@ -1,22 +1,24 @@
-<div class="container">
-  <form class="needs-validation" [formGroup]="nomadForm" (ngSubmit)="onSubmit()">
-    <label>
-      Region
-      <select formControlName="regionSelect" required>
-        <option *ngFor="let reg of regions" [ngValue]="reg">{{ reg.name }}</option>
-      </select>
-    </label>
-    <label *ngIf="nomadJobs">
-      Jobs
-      <select formControlName="jobSelect" required>
-        <option *ngFor="let job of nomadJobs" [ngValue]="job">{{ job.ID }}</option>
-      </select>
-    </label>
+<div>
+  <form [formGroup]="nomadForm" (ngSubmit)="onSubmit()">
+    <mat-form-field>
+      <mat-select formControlName="regionSelect" required placeholder="Region">
+        <mat-option *ngFor="let region of regions" [value]="region">
+          {{ region.name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
 
-    <label *ngFor="let metadata of metadataFields">
-      {{ metadata.key }}
-      <input type="text" [formControlName]="metadata.key">
-    </label>
+    <mat-form-field *ngIf="nomadJobs$ | async as nomadJobs">
+      <mat-select formControlName="jobSelect" required placeholder="Jobs">
+        <mat-option *ngFor="let job of nomadJobs" [value]="job">
+          {{ job.ID }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field *ngFor="let metadata of nomadMetadata$ | async" class="example-full-width">
+      <input matInput [placeholder]="metadata.key" [formControlName]="metadata.key">
+    </mat-form-field>
 
     <button [disabled]=nomadForm.invalid type="submit">Submit</button>
   </form>

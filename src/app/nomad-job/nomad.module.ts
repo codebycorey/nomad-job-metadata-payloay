@@ -4,6 +4,8 @@ import { HttpClientModule } from '@angular/common/http';
 import { NomadComponent } from './nomad.component';
 import { CommonModule } from '@angular/common';
 import { NomadService } from './nomad.service';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 @NgModule({
   declarations: [
@@ -12,7 +14,9 @@ import { NomadService } from './nomad.service';
   imports: [
     CommonModule,
     HttpClientModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    MatInputModule,
+    MatSelectModule
   ],
   exports: [
     NomadComponent
